@@ -309,7 +309,7 @@ def get_output_path(manifest, regex):
 
     return ({'path': out_zarr_path, 'nodeId': nodeId})
 
-def get_manifest(workflow_uid, auth_token, argo_url='https://argo.cildc6.org/api/v1', workflow_location='workflows', namespace='default'):
+def get_manifest(workflow_identifier, auth_token, argo_url='https://argo.cildc6.org/api/v1', workflow_location='workflows', namespace='default'):
     """
     make an http request to retrieve a workflow manifest from an argo server
 
@@ -322,12 +322,15 @@ def get_manifest(workflow_uid, auth_token, argo_url='https://argo.cildc6.org/api
     argo_url: str
         url of argo server
     workflow_location: str
-        probably only 'workflows' or 'archived_workflows'
+       'workflows' or 'archived-workflows'
     namespace: str
-        argo namespace
+        argo namespace, ignored for archive.
     Returns
     -------
     dict
         representation of the workflow manifest in dict format parsed form json file
     """
-    return requests.get(url=f'{argo_url}/{workflow_location}/{namespace}/' + workflow_uid, headers={'Authorization': auth_token}).json()
+    if workflow_location == 'workflows':
+        return requests.get(url=f'{argo_url}/{workflow_location}/{namespace}/' + workflow_identifier, headers={'Authorization': auth_token}).json()
+    elif workflow_location == 'archived-workflows':
+        return requests.get(url=f'{argo_url}/{workflow_location}/{workflow_identifier}', headers={'Authorization': auth_token}).json()
