@@ -9,20 +9,22 @@ def QC_models_dict():
         'CanESM5': 'f687418f-198a-459a-94f4-05f2898f7ca8',
         'ACCESS-ESM1-5': '16c44262-869b-4301-9b47-668f7e33cb3a',
         'MIROC6': '5a24740e-4527-4f7d-9017-560f148198c5',
-        'EC-Earth3':None,
-        'EC-Earth3-Veg-LR':None,
-        'EC-Earth3-Veg':None,
-        'MPI-ESM1-2-HR':None,
-        'CMCC-ESM2':None,
-        'INM-CM5-0':None,
-        'INM-CM4-8':None,
-        'MIROC-ES2L':None,
+        'EC-Earth3':'8293b845-c98c-46fe-8d9a-1f265f303f7d',
+        'EC-Earth3-Veg-LR':'6976552d-ede9-4aff-a6a0-8ede91448363',
+        'EC-Earth3-Veg':'88701631-767c-4946-9ba2-204093aa77b0',
+        'MPI-ESM1-2-HR':'2fec4037-8be6-4e73-88d3-5af875f4064f',
+        'CMCC-ESM2':'8f3a4fb2-0b52-4ab5-83e1-f1593c18cab3',
+        'INM-CM5-0':'952ba89d-f470-4728-82dd-66931b8d6b34',
+        'INM-CM4-8':'174ba0dd-a3e8-4ea7-816d-5cad2308abd5',
+        'MIROC-ES2L':'3a7b97a0-bf81-4982-82c1-0d24c705aa25',
         'MPI-ESM1-2-LR': 'a72a26b2-c151-4030-ba43-d75cc91745d7',
         'FGOALS-g3': 'fd37c7d0-c978-4fed-95b4-44b71dd47358',
         'BCC-CSM2-MR': 'f5fc9bb1-0ae0-49ab-a0d1-9977091be1a1',
         'AWI-CM-1-1-MR':'894db5cb-78d7-4c1e-bead-af7549e28f73',
         'NorESM2-LM': '9a4c2b72-d88e-4214-852c-a72951df31b7',
-        'NESM3': '4e3836a3-c816-4f4f-b7b3-6cc4233f818e'
+        'NESM3': '4e3836a3-c816-4f4f-b7b3-6cc4233f818e',
+        'GFDL-ESM4':'c3f7a52e-c324-433d-abb6-b309264909a6',
+        'GFDL-CM4': 'ac6cd81c-07fe-4ebf-acb6-1e27107b9e16'
     }
     
     return dictionary

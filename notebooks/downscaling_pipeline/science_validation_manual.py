@@ -27,7 +27,7 @@ def plot_diagnostic_climo_periods(ds_future, ssp, years, variable, metric, data_
     """
     plot mean, max, min tasmax, dtr, precip for CMIP6, bias corrected and downscaled data 
     """
-    fig, axes = plt.subplots(1, 5, figsize=(20, 6), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, axes = plt.subplots(1, 5, figsize=(45, 12), subplot_kw={'projection': ccrs.PlateCarree()})
     cmap = cm.cividis 
     
     for i, key in enumerate(years): 
@@ -141,7 +141,7 @@ def plot_bias_correction_downscale_differences(ds_future_bc, ds_future_ds, ds_fu
     plot_type options: downscaled_minus_biascorrected, change_from_historical (latter takes bias corrected or downscaled or cmip6)
     data_type options: bias_corrected, downscaled, cmip6
     """
-    fig, axes = plt.subplots(1, 2, figsize=(25, 4), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, axes = plt.subplots(1, 2, figsize=(45, 12), subplot_kw={'projection': ccrs.PlateCarree()})
 
     if plot_type == 'change_from_historical':
         if data_type == 'bias_corrected':
