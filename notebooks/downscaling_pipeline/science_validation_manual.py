@@ -23,9 +23,9 @@ def xc_maximum_consecutive_dry_days(ds, thresh=0.0005):
 def xc_RX5day(ds):
     return xc.indicators.icclim.RX5day(ds, freq='YS')
 
-def plot_diagnostic_climo_periods(ds_future, ssp, years, variable, metric, data_type, units, ds_hist=None, vmin=240, vmax=320, transform = ccrs.PlateCarree(), xr_func=None):
+def plot_diagnostic_climo_periods(ds_future, ds_hist, ssp, years, variable, metric, data_type, units, vmin=240, vmax=320, xr_func=None):
     """
-    plot mean, max, min tasmax, dtr, precip for CMIP6, bias corrected and downscaled data 
+    Collapsing N times (N=length of `years`)
     """
     fig, axes = plt.subplots(1, 5, figsize=(45, 12), subplot_kw={'projection': ccrs.PlateCarree()})
     cmap = cm.cividis 
@@ -33,7 +33,7 @@ def plot_diagnostic_climo_periods(ds_future, ssp, years, variable, metric, data_
     for i, key in enumerate(years): 
         
         # different dataset for historical, select years 
-        if i == 0 and ds_hist != None:
+        if i == 0:
             da = ds_hist[variable].sel(time=slice(years[key]['start_yr'], years[key]['end_yr']))
         else:
             da = ds_future[variable].sel(time=slice(years[key]['start_yr'], years[key]['end_yr']))
@@ -47,13 +47,9 @@ def plot_diagnostic_climo_periods(ds_future, ssp, years, variable, metric, data_
             data = da.max(dim='time').load()
         elif metric == 'min':
             data = da.min(dim='time').load()
-        
-        
-        if ds_hist is not None:
-            ind = i
-        else: 
-            ind = i+1
-        
+
+        ind = i
+
         im = data.plot(ax=axes[ind], 
                   cmap=cmap,
                   transform=ccrs.PlateCarree(), add_colorbar=False, vmin=vmin, vmax=vmax)
@@ -77,7 +73,10 @@ def plot_diagnostic_climo_periods(ds_future, ssp, years, variable, metric, data_
     cbar=fig.colorbar(im, cax=cbar_ax, label=cbar_title, orientation='horizontal')
         
 def plot_change_from_historical(ds_future, ds_hist, data_type, variable, units, years, robust=True, ssp='370', time_period='2080_2100', xr_func=None):
-       
+    """
+    Collapsing two datasets
+    """
+
     ds_hist = ds_hist[variable].sel(time=slice(years['hist']['start_yr'], years['hist']['end_yr']))
     ds_future = ds_future[variable].sel(time=slice(years[time_period]['start_yr'], years[time_period]['end_yr']))
 
@@ -109,11 +108,9 @@ def plot_change_from_historical(ds_future, ds_hist, data_type, variable, units, 
     
 def plot_downscale_bias_correction_differences(ds_future_bc, ds_future_ds, ds_hist_bc, ds_hist_ds, variable, units, years, robust=True, ssp='370', time_period='2080_2100', xr_func=None):
     """
-    This is computing over 4 time by lat by lon datasets. The minimum number of operations is 2-1.mean() and 4-3.mean().
-    There might be more than that depending on xr_func. 
-    plot differences between bias corrected and downscaled. 
-    produces two subplots, one for historical and one for the specified future time period.
+    Collapsing 4 datasets
     """
+
     fig, axes = plt.subplots(1, 2, figsize=(45, 12), subplot_kw={'projection': ccrs.PlateCarree()})
 
 
