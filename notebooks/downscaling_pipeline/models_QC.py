@@ -2,8 +2,6 @@
 def QC_models_dict():
     
     dictionary = {
-        'CAMS-CSM1-0': 'c35b43d0-d104-4e61-8ac7-5548f9945f51',
-        'NorESM2-MM': '3ed7b2be-a750-4613-9e6e-a9ba77226095',
         'ACCESS-CM2': 'f89622e4-a0da-4d76-af06-fa724225d5e1',
         'MRI-ESM2-0': 'f99d1d93-8888-4787-a5f2-5b661eeca705',
         'CanESM5': 'f687418f-198a-459a-94f4-05f2898f7ca8',
@@ -22,9 +20,11 @@ def QC_models_dict():
         'BCC-CSM2-MR': 'f5fc9bb1-0ae0-49ab-a0d1-9977091be1a1',
         'AWI-CM-1-1-MR':'894db5cb-78d7-4c1e-bead-af7549e28f73',
         'NorESM2-LM': '9a4c2b72-d88e-4214-852c-a72951df31b7',
-        'NESM3': '4e3836a3-c816-4f4f-b7b3-6cc4233f818e',
+        #'NESM3': '4e3836a3-c816-4f4f-b7b3-6cc4233f818e', unusable
         'GFDL-ESM4':'c3f7a52e-c324-433d-abb6-b309264909a6',
-        'GFDL-CM4': 'ac6cd81c-07fe-4ebf-acb6-1e27107b9e16'
+        #'GFDL-CM4': 'ac6cd81c-07fe-4ebf-acb6-1e27107b9e16', unusable
+        'CAMS-CSM1-0': 'c35b43d0-d104-4e61-8ac7-5548f9945f51',
+        'NorESM2-MM': '3ed7b2be-a750-4613-9e6e-a9ba77226095'
     }
     
     return dictionary

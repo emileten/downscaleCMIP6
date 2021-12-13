@@ -23,7 +23,7 @@ def xc_maximum_consecutive_dry_days(ds, thresh=0.0005):
 def xc_RX5day(ds):
     return xc.indicators.icclim.RX5day(ds, freq='YS')
 
-def plot_diagnostic_climo_periods(ds_future, ssp, years, variable, metric, data_type, units, ds_hist=None, vmin=240, vmax=320, transform = ccrs.PlateCarree(), xr_func=None):
+def plot_diagnostic_climo_periods(gcm, ds_future, ssp, years, variable, metric, data_type, units, ds_hist=None, vmin=240, vmax=320, transform = ccrs.PlateCarree(), xr_func=None):
     """
     plot mean, max, min tasmax, dtr, precip for CMIP6, bias corrected and downscaled data 
     """
@@ -61,7 +61,7 @@ def plot_diagnostic_climo_periods(ds_future, ssp, years, variable, metric, data_
         axes[ind].coastlines()
         axes[ind].add_feature(cfeature.BORDERS, linestyle=":")
         if ind == 2:
-            axes[ind].set_title('{} {}, {} \n {}'.format(metric, data_type, ssp, key))
+            axes[ind].set_title('{} {} {}, {} \n {}'.format(gcm, metric, data_type, ssp, key))
         else: 
             axes[ind].set_title("{}".format(key))
     
@@ -161,7 +161,7 @@ def plot_bias_correction_downscale_differences(ds_future_bc, ds_future_ds, ds_fu
             ds_future = xr_func(ds_future)
 
         diff1 = ds_hist.mean('time').load()
-        diff2 = ds_future.mean('time').load() - ds_hist.mean('time').load()
+        diff2 = ds_future.mean('time').load() - diff1
 
         suptitle = "{} change from historical: {}".format(ssp, data_type)
         cmap = cm.viridis
