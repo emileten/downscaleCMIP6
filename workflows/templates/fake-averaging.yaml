@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: fake-averaging-
+  annotations:
+    workflows.argoproj.io/description: |
+      fake averaging
+spec:
+  entrypoint: fake-averaging
+  templates:
+    - name: fake-averaging
+      script:
+        image: us-central1-docker.pkg.dev/downscalecmip6/private/dodola:0.12.0
+        command: [python]
+        source: |
+          import xarray as xr
+          import dask
+          from dodola import repository
+          ds = repository.read("gs://downscaled-288ec5ac/stage/ScenarioMIP/MRI/MRI-ESM2-0/ssp370/r1i1p1f1/day/tasmax/gn/v20211202032930.zarr")
+          print(ds)
+          result = ds.sel(time=slice("2040", "2060")).mean("time").compute()
+          print(result)
+        resources:
+          requests:
+            memory: 3Gi
+            cpu: "1000m"
+          limits:
+            memory: 10Gi
+            cpu: "9000m"
+  activeDeadlineSeconds: 600
