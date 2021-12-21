@@ -205,7 +205,7 @@ def plot_bias_correction_downscale_differences(ds_future_bc, ds_future_ds, ds_fu
     axes[1].coastlines()
     axes[1].add_feature(cfeature.BORDERS, linestyle=":")
 
-def read_gcs_zarr(zarr_url, token='/opt/gcsfuse_tokens/impactlab-data.json', check=False):
+def read_gcs_zarr(zarr_url, token='/opt/gcsfuse_tokens/impactlab-data.json', check=False, consolidated=True):
     """
     takes in a GCSFS zarr url, bucket token, and returns a dataset 
     Note that you will need to have the proper bucket authentication. 
@@ -213,7 +213,10 @@ def read_gcs_zarr(zarr_url, token='/opt/gcsfuse_tokens/impactlab-data.json', che
     fs = gcsfs.GCSFileSystem(token=token)
     
     store_path = fs.get_mapper(zarr_url, check=check)
-    ds = xr.open_zarr(store_path)
+    
+    ds = xr.open_zarr(store_path, consolidated=consolidated)
+    
+    ds.close()
     
     return ds 
 
