@@ -23,11 +23,11 @@ def xc_maximum_consecutive_dry_days(ds, thresh=0.0005):
 def xc_RX5day(ds):
     return xc.indicators.icclim.RX5day(ds, freq='YS')
 
-def plot_diagnostic_climo_periods(gcm, ds_future, ssp, years, variable, metric, data_type, units, ds_hist=None, vmin=240, vmax=320, transform = ccrs.PlateCarree(), xr_func=None):
+def plot_diagnostic_climo_periods(ds_future, ssp, years, variable, metric, data_type, units, ds_hist=None, vmin=240, vmax=320, transform = ccrs.PlateCarree(), xr_func=None):
     """
     plot mean, max, min tasmax, dtr, precip for CMIP6, bias corrected and downscaled data 
     """
-    fig, axes = plt.subplots(1, 5, figsize=(45, 12), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, axes = plt.subplots(1, 5, figsize=(20, 6), subplot_kw={'projection': ccrs.PlateCarree()})
     cmap = cm.cividis 
     
     for i, key in enumerate(years): 
@@ -61,7 +61,7 @@ def plot_diagnostic_climo_periods(gcm, ds_future, ssp, years, variable, metric, 
         axes[ind].coastlines()
         axes[ind].add_feature(cfeature.BORDERS, linestyle=":")
         if ind == 2:
-            axes[ind].set_title('{} {} {}, {} \n {}'.format(gcm, metric, data_type, ssp, key))
+            axes[ind].set_title('{} {}, {} \n {}'.format(metric, data_type, ssp, key))
         else: 
             axes[ind].set_title("{}".format(key))
     
@@ -220,7 +220,7 @@ def read_gcs_zarr(zarr_url, token='/opt/gcsfuse_tokens/impactlab-data.json', che
     
     return ds 
 
-def collect_paths(manifest, gcm='GFDL-ESM4', ssp='ssp370', var='tasmax'):
+def collect_paths(manifest, gcm='GFDL-ESM4', ssp='ssp370', var='tasmax', raises=True):
     """
     collect intermediary output file paths to be validated from an argo manifest : CMIP6, ERA-5, bias corrected, and downscaled output
     data, both in low and high resolution. Depends on a precise version of the workflow template names.
@@ -231,14 +231,16 @@ def collect_paths(manifest, gcm='GFDL-ESM4', ssp='ssp370', var='tasmax'):
     gcm: str
     ssp: str
     var: str
+    raises: bool
 
     Returns
     -------
     dict
     """
+    #TODO have a case for DTR
 
-    future_token = '(?=.*,target:ssp,)'
-    historical_token = '(?=.*,target:historical,)'
+    future_token = '(?=.*:target:ssp,)' 
+    historical_token = '(?=.*:target:historical,)'
     var_token  = f'(?=.*"variable_id":"{var}")'
     ssp_token = f'(?=.*"experiment_id":"{ssp}")'
     gcm_token = f'(?=.*"source_id":"{gcm}")'
@@ -248,32 +250,143 @@ def collect_paths(manifest, gcm='GFDL-ESM4', ssp='ssp370', var='tasmax'):
     data_dict = {
         'coarse': {
             'cmip6': {
-                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-simulation)')['path'],
-                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-simulation)')['path']
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-simulation)', raises)['path'], #TODO YOU HAD CHANGED THAT TO TEST FOR DTR
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-simulation)', raises)['path']
             },
             'bias_corrected': {
-                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*rechunk-biascorrected)')['path'],
-                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*rechunk-biascorrected)')['path']
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*rechunk-biascorrected)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*rechunk-biascorrected)', raises)['path']
             },
-            'ERA-5': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-reference)')['path']
+            'ERA-5': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-reference)(?=.*move-chunks-to-space)', raises)['path']
         },
         'fine': {
             'bias_corrected': {
-                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*preprocess-biascorrected)(?=.*regrid)(?=.*prime-regrid-zarr)')['path'],
-                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*preprocess-biascorrected)(?=.*regrid)(?=.*prime-regrid-zarr)')['path']
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*preprocess-biascorrected)(?=.*regrid)(?=.*prime-regrid-zarr)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*preprocess-biascorrected)(?=.*regrid)(?=.*prime-regrid-zarr)', raises)['path']
             },
             'downscaled': {
-                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*prime-qplad-output-zarr)')['path'],
-                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*prime-qplad-output-zarr)')['path']
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*prime-qplad-output-zarr)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*prime-qplad-output-zarr)', raises)['path']
             },
-            'ERA-5_fine': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*create-fine-reference)(?=.*move-chunks-to-space)')['path'],
-            'ERA-5_coarse': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*create-coarse-reference)(?=.*move-chunks-to-space)')['path']
+            'ERA-5_fine': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*create-fine-reference)(?=.*move-chunks-to-space)', raises)['path'],
+            'ERA-5_coarse': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*create-coarse-reference)(?=.*move-chunks-to-space)', raises)['path']
         }
     }
 
     return data_dict
 
-def get_output_path(manifest, regex):
+
+def collect_paths(manifest, gcm='GFDL-ESM4', ssp='ssp370', var='tasmax', raises=True):
+    """
+    collect intermediary output file paths to be validated from an argo manifest : CMIP6, ERA-5, bias corrected, and downscaled output
+    data, both in low and high resolution. Depends on a precise version of the workflow template names.
+
+    Parameters
+    ---------
+    manifest: dict
+    gcm: str
+    ssp: str
+    var: str
+    raises: bool
+
+    Returns
+    -------
+    dict
+    """
+    #TODO have a case for DTR
+
+    future_token = '(?=.*:target:ssp,)' 
+    historical_token = '(?=.*:target:historical,)'
+    var_token  = f'(?=.*"variable_id":"{var}")'
+    ssp_token = f'(?=.*"experiment_id":"{ssp}")'
+    gcm_token = f'(?=.*"source_id":"{gcm}")'
+    f = get_output_path
+
+    # not looping for this because of the ERA idiosyncratic case
+    data_dict = {
+        'coarse': {
+            'cmip6': {
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-simulation)', raises)['path'], #TODO YOU HAD CHANGED THAT TO TEST FOR DTR
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-simulation)', raises)['path']
+            },
+            'bias_corrected': {
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*rechunk-biascorrected)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*rechunk-biascorrected)', raises)['path']
+            },
+            'ERA-5': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-reference)(?=.*move-chunks-to-space)', raises)['path']
+        },
+        'fine': {
+            'bias_corrected': {
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*preprocess-biascorrected)(?=.*regrid)(?=.*prime-regrid-zarr)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*preprocess-biascorrected)(?=.*regrid)(?=.*prime-regrid-zarr)', raises)['path']
+            },
+            'downscaled': {
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*prime-qplad-output-zarr)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*prime-qplad-output-zarr)', raises)['path']
+            },
+            'ERA-5_fine': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*create-fine-reference)(?=.*move-chunks-to-space)', raises)['path'],
+            'ERA-5_coarse': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*create-coarse-reference)(?=.*move-chunks-to-space)', raises)['path']
+        }
+    }
+
+    return data_dict
+
+def collect_paths_pr(manifest, gcm='GFDL-ESM4', ssp='ssp370', var='pr', raises=True):
+    """
+    collect intermediary output file paths to be validated from an argo manifest : CMIP6, ERA-5, bias corrected, and downscaled output
+    data, both in low and high resolution. Depends on a precise version of the workflow template names.
+
+    Parameters
+    ---------
+    manifest: dict
+    gcm: str
+    ssp: str
+    var: str
+    raises: bool
+
+    Returns
+    -------
+    dict
+    """
+    #TODO have a case for DTR
+
+    future_token = '(?=.*target:ssp,)' 
+    historical_token = '(?=.*target:historical,)'
+    var_token  = f'(?=.*"variable_id":"{var}")'
+    ssp_token = f'(?=.*"experiment_id":"{ssp}")'
+    gcm_token = f'(?=.*"source_id":"{gcm}")'
+    f = get_output_path
+
+    # not looping for this because of the ERA idiosyncratic case
+    data_dict = {
+        'coarse': {
+            'cmip6': {
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-simulation)(?=.*move-chunks-to-space)', raises)['path'], #TODO YOU HAD CHANGED THAT TO TEST FOR DTR
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-simulation)(?=.*move-chunks-to-space)', raises)['path']
+            },
+            'bias_corrected': {
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*cap-max-biascorrected-precip)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*cap-max-biascorrected-precip)', raises)['path']
+            },
+            'ERA-5': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*biascorrect)(?=.*preprocess-reference)(?=.*move-chunks-to-space)', raises)['path']
+        },
+        'fine': {
+            'bias_corrected': {
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*preprocess-biascorrected)(?=.*regrid)(?=.*prime-regrid-zarr)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*preprocess-biascorrected)(?=.*regrid)(?=.*prime-regrid-zarr)', raises)['path']
+            },
+            'downscaled': {
+                ssp: f(manifest, f'{future_token}{var_token}{ssp_token}{gcm_token}(?=.*cap-max-downscaled-precip)', raises)['path'],
+                'historical': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*cap-max-downscaled-precip)', raises)['path']
+            },
+            'ERA-5_fine': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*create-fine-reference)(?=.*move-chunks-to-space)', raises)['path'],
+            'ERA-5_coarse': f(manifest, f'{historical_token}{var_token}{ssp_token}{gcm_token}(?=.*create-coarse-reference)(?=.*move-chunks-to-space)', raises)['path']
+        }
+    }
+
+    return data_dict
+
+def get_output_path(manifest, regex, raises=True):
     """
     lists status.nodes in an argo manifest, and grabs intermediary output files paths using the node tree represented by
     status.nodes[*].name. Keeps only nodes of type 'Pod' and phase 'succeeded'.
@@ -284,6 +397,8 @@ def get_output_path(manifest, regex):
     regex : str
         regular expression syntax str to filter nodes based on which templates were executed within a given node and before that given
         node in the tree.
+    raises: bool
+        if True, stops and informs if it fails. Otherwise returns only None values.
     Returns
     ------
     dict:
@@ -293,22 +408,28 @@ def get_output_path(manifest, regex):
     out_zarr_path = None
     nodeId = None
     i = 0
-
+    failure = {'path': out_zarr_path, 'nodeId': nodeId}
     for node in manifest['status']['nodes']:
         this_node = manifest['status']['nodes'][node]
         if this_node['type'] == 'Pod' and this_node['phase'] == 'Succeeded' and re.search(regex, this_node['name']):
             i = i + 1
             if i > 1:
-                raise Exception('I could not identify a unique node in the manifest for regex : ' + regex + '\n' +
-                                '. Id of the first match : ' + nodeId + '\n' + 'Id of second match : ' + this_node['id'])
+                if raises:
+                    raise Exception('I could not identify a unique node in the manifest for regex : ' + regex + '\n' +
+                                    '. Id of the first match : ' + nodeId + '\n' + 'Id of second match : ' + this_node['id'])
+                else: 
+                    return (failure)
             nodeId = this_node['id']
             if 'outputs' in this_node and 'parameters' in this_node['outputs']:
                 for param in this_node['outputs']['parameters']:
                     if param['name'] == 'out-zarr':
                         out_zarr_path = param['value']
 
-    if out_zarr_path is None and nodeId is None:
-        raise Exception('I could not identify any node in the manifest')
+    if out_zarr_path is None or nodeId is None:
+        if raises:
+            raise Exception(f'I could not identify any node in the manifest for regex {regex}')
+        else: 
+            return (failure)
 
     return ({'path': out_zarr_path, 'nodeId': nodeId})
 
