@@ -254,6 +254,26 @@ spec:
                   value: "{{ inputs.parameters.correct-wetday-frequency }}"
                 - name: apply-dtr-minimum-threshold
                   value: "false"
+          - name: compute-max-preprocessed-training
+            template: compute-max-by-lat-lon
+            depends: preprocess-training
+            arguments:
+              parameters:
+                - name: in-zarr
+                  value: "{{ tasks.preprocess-training.outputs.parameters.out-zarr }}"
+          - name: compute-max-preprocessed-simulation
+            template: compute-max-by-lat-lon
+            depends: preprocess-simulation
+            arguments:
+              parameters:
+                - name: in-zarr
+                  value: "{{ tasks.preprocess-simulation.outputs.parameters.out-zarr }}"
+          - name: compute-max-preprocessed-reference
+            template: compute-max-by-lat-lon
+            arguments:
+              parameters:
+                - name: in-zarr
+                  value: "{{ inputs.parameters.qdm-reference-zarr }}"
           - name: biascorrect
             templateRef:
               name: qdm
@@ -295,17 +315,25 @@ spec:
                   value: 10
                 - name: lon-chunk
                   value: 180
-          - name: cap-max-biascorrected-precip
-            template: cap-max-precipitation
-            depends: rechunk-biascorrected && get-output-biascorrected-url
+          - name: apply-cap-max-biascorrected-precipitation
+            template: cap-max-biascorrected-precipitation
+            depends: rechunk-biascorrected && |
+            get-output-biascorrected-url && |
+            compute-max-preprocessed-simulation && compute-max-preprocessed-training && compute-max-preprocessed-reference
             arguments:
               parameters:
-                - name: in-zarr
+                - name: ref-max-zarr
+                  value: "{{ tasks.compute-max-preprocessed-reference.outputs.parameters.out-zarr }}"
+                - name: sim-max-zarr
+                  value: "{{ tasks.compute-max-preprocessed-simulation.outputs.parameters.out-zarr }}"
+                - name: training-max-zarr
+                  value: "{{ tasks.compute-max-preprocessed-training.outputs.parameters.out-zarr }}"
+                - name: biascorrected-zarr
                   value: "{{ tasks.rechunk-biascorrected.outputs.parameters.out-zarr }}"
                 - name: out-zarr
                   value: "{{ tasks.get-output-biascorrected-url.outputs.parameters.out-url }}"
           - name: validate-biascorrected
-            depends: cap-max-biascorrected-precip && get-output-biascorrected-url
+            depends: get-output-biascorrected-url && apply-cap-max-biascorrected-precipitation
             templateRef:
               name: qualitycontrol-check-cmip6
               template: qualitycontrol-check-cmip6
@@ -436,33 +464,90 @@ spec:
           duration: 30s
           factor: 2
 
-
-    - name: cap-max-precipitation
+    - name: compute-max-by-lat-lon
       inputs:
         parameters:
           - name: in-zarr
           - name: out-zarr
-            value: "gs://scratch-170cd6ec/{{ workflow.uid }}/{{ pod.name }}/capped-precip.zarr"
+            value: "gs://scratch-170cd6ec/{{ workflow.uid }}/{{ pod.name }}/max-across-time-by-lat-lon.zarr"
       outputs:
         parameters:
           - name: out-zarr
             value: "{{ inputs.parameters.out-zarr }}"
-      container:
-        image: us-central1-docker.pkg.dev/downscalecmip6/private/dodola:0.15.0
-        command: [ dodola ]
-        args:
-          - "adjust-maximum-precipitation"
-          - "{{ inputs.parameters.in-zarr }}"
-          - "--out={{ inputs.parameters.out-zarr }}"
-          - "--threshold=3000"
+      script:
+        image: us-central1-docker.pkg.dev/downscalecmip6/private/dodola:0.16.1
+        command: [ python ]
+        source: |
+          import xarray as xr
+          import numpy as np
+          from dodola.repository import read, write
+
+          ds = read("{{ inputs.parameters.in-zarr }}")
+          ds.load()
+          ds_max_across_time = ds.max('time')
+          write("{{ inputs.parameters.out-zarr }}", ds_max_across_time)
         resources:
           requests:
-            memory: 2Gi
-            cpu: "100m"
-          limits:
-            memory: 2Gi
+            memory: 48Gi
             cpu: "1000m"
-      activeDeadlineSeconds: 14400
+          limits:
+            memory: 48Gi
+            cpu: "2000m"
+      activeDeadlineSeconds: 1200
+      retryStrategy:
+        limit: 2
+        retryPolicy: "Always"
+        backoff:
+          duration: 30s
+          factor: 2
+
+    - name: cap-max-biascorrected-precipitation
+      inputs:
+        parameters:
+          - name: ref-max-zarr
+          - name: sim-max-zarr
+          - name: training-max-zarr
+          - name: biascorrected-zarr
+          - name: out-zarr
+            value: "gs://scratch-170cd6ec/{{ workflow.uid }}/{{ pod.name }}/capped-biascorrected-precip.zarr"
+      outputs:
+        parameters:
+          - name: out-zarr
+            value: "{{ inputs.parameters.out-zarr }}"
+      script:
+        image: us-central1-docker.pkg.dev/downscalecmip6/private/dodola:0.16.1
+        command: [ python ]
+        source: |
+          import xarray as xr
+          from dodola.repository import read, write
+
+          ref_max = read("{{ inputs.parameters.ref-max-zarr }}").load()
+          sim_max = read("{{ inputs.parameters.sim-max-zarr }}").load()
+          training_max = read("{{ inputs.parameters.training-max-zarr }}").load()
+          biascorrected = read("{{ inputs.parameters.biascorrected-zarr }}").load()
+
+          # cap definition :
+            # the cell-specific maximum in the observational reference data ...
+            # ... scaled by the trend in the cell specific maximum between simulation and training ...
+            # ... scaled by 1.5
+
+          # we do not let precipitation values be larger than that for each grid cell.
+
+          max_da = 1.5 * (ref_max['pr'] * (sim_max['pr']/training_max['pr']))
+
+          max_da_expanded = max_da.expand_dims(dim=dict(time=biascorrected['time'].values))
+          biascorrected['pr'] = biascorrected['pr'].where(biascorrected['pr'] < max_da_expanded, max_da_expanded)
+
+          write("{{ inputs.parameters.out-zarr }}", biascorrected)
+
+        resources:
+          requests:
+            memory: 48Gi
+            cpu: "1000m"
+          limits:
+            memory: 48Gi
+            cpu: "2000m"
+      activeDeadlineSeconds: 1200
       retryStrategy:
         limit: 2
         retryPolicy: "Always"

@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: standardize-cmip6-test-
+  labels:
+    component: standardize-cmip6-test
+spec:
+  entrypoint: standardize-cmip6
+  arguments:
+    parameters:
+      - name: in-zarr
+        value: gs://scratch-170cd6ec/44426fb4-1f01-495f-96a0-d600cb8759c0/clean-cmip6-test-vtjln-3188036928/timesliced.zarr
+  templates:
+
+
+    - name: standardize-cmip6
+      inputs:
+        parameters:
+          - name: in-zarr
+      script:
+        image: us-central1-docker.pkg.dev/downscalecmip6/private/dodola:0.16.1
+        command: [ python ]
+        source: |
+
+          from dodola.core import standardize_gcm
+
+          input_zarr = "{{ inputs.parameters.in-zarr }}"
+          standardized = standardize_gcm(input_zarr)
+          print(standardized['time'])
+
+        resources:
+          requests:
+            memory: 16Gi
+            cpu: "500m"
+          limits:
+            memory: 48Gi  # Bump for large EC-Earth3 data.
+            cpu: "6000m"
+      activeDeadlineSeconds: 1200
+      retryStrategy:
+        limit: 3
+        retryPolicy: "Always"
