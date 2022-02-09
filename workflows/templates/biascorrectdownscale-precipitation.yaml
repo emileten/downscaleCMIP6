@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
-kind: WorkflowTemplate
+kind: Workflow
 metadata:
-  name: biascorrectdownscale-precipitation
+  generateName: biascorrectdownscale-precipitation-dev-
   annotations:
     workflows.argoproj.io/description: >-
       Bias-correction and downscaling CMIP6 GCM output for precipitation.
@@ -13,9 +13,9 @@ metadata:
   labels:
     component: biascorrectdownscale
 spec:
-  workflowMetadata:
-    labels:
-      component: biascorrectdownscale
+#  workflowMetadata:
+#    labels:
+#      component: biascorrectdownscale
   entrypoint: with-jobs
   arguments:
     parameters:
@@ -300,25 +300,9 @@ spec:
                   value: "{{ inputs.parameters.first-year }}"
                 - name: last-year
                   value: "{{ tasks.get-biascorrected-last-year.outputs.parameters.last-year }}"
-          - name: rechunk-biascorrected
-            depends: biascorrect
-            templateRef:
-              name: rechunk
-              template: rechunk
-            arguments:
-              parameters:
-                - name: in-zarr
-                  value: "{{ tasks.biascorrect.outputs.parameters.out-zarr }}"
-                - name: time-chunk
-                  value: 73
-                - name: lat-chunk
-                  value: 10
-                - name: lon-chunk
-                  value: 180
           - name: apply-cap-max-biascorrected-precipitation
             template: cap-max-biascorrected-precipitation
-            depends: rechunk-biascorrected && |
-            get-output-biascorrected-url && |
+            depends: biascorrect && |
             compute-max-preprocessed-simulation && compute-max-preprocessed-training && compute-max-preprocessed-reference
             arguments:
               parameters:
@@ -329,11 +313,26 @@ spec:
                 - name: training-max-zarr
                   value: "{{ tasks.compute-max-preprocessed-training.outputs.parameters.out-zarr }}"
                 - name: biascorrected-zarr
-                  value: "{{ tasks.rechunk-biascorrected.outputs.parameters.out-zarr }}"
+                  value: "{{ tasks.biascorrect.outputs.parameters.out-zarr }}"
+          - name: rechunk-biascorrected
+            depends: apply-cap-max-biascorrected-precipitation && get-output-biascorrected-url
+            templateRef:
+              name: rechunk
+              template: rechunk
+            arguments:
+              parameters:
+                - name: in-zarr
+                  value: "{{ tasks.apply-cap-max-biascorrected-precipitation.outputs.parameters.out-zarr }}"
                 - name: out-zarr
                   value: "{{ tasks.get-output-biascorrected-url.outputs.parameters.out-url }}"
+                - name: time-chunk
+                  value: 73
+                - name: lat-chunk
+                  value: 10
+                - name: lon-chunk
+                  value: 180
           - name: validate-biascorrected
-            depends: get-output-biascorrected-url && apply-cap-max-biascorrected-precipitation
+            depends: get-output-biascorrected-url && rechunk-biascorrected
             templateRef:
               name: qualitycontrol-check-cmip6
               template: qualitycontrol-check-cmip6
@@ -524,7 +523,8 @@ spec:
           ref_max = read("{{ inputs.parameters.ref-max-zarr }}").load()
           sim_max = read("{{ inputs.parameters.sim-max-zarr }}").load()
           training_max = read("{{ inputs.parameters.training-max-zarr }}").load()
-          biascorrected = read("{{ inputs.parameters.biascorrected-zarr }}").load()
+          biascorrected = read("{{ inputs.parameters.biascorrected-zarr }}")
+          biascorrected_pr = biascorrected['pr'].load()
 
           # cap definition :
             # the cell-specific maximum in the observational reference data ...
@@ -535,8 +535,9 @@ spec:
 
           max_da = 1.5 * (ref_max['pr'] * (sim_max['pr']/training_max['pr']))
 
-          max_da_expanded = max_da.expand_dims(dim=dict(time=biascorrected['time'].values))
-          biascorrected['pr'] = biascorrected['pr'].where(biascorrected['pr'] < max_da_expanded, max_da_expanded)
+          max_da_expanded = max_da.expand_dims(dim=dict(time=biascorrected_pr['time'].values))
+          biascorrected_pr = biascorrected_pr.where(biascorrected_pr < max_da_expanded, max_da_expanded)
+          biascorrected['pr'] = biascorrected_pr
 
           write("{{ inputs.parameters.out-zarr }}", biascorrected)
 
