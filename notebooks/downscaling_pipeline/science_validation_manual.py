@@ -11,6 +11,23 @@ import re
 import requests
 import xclim as xc
 
+
+def simple_plot_series(da_dict, vmin, vmax, size):
+    fig, axes = plt.subplots(1, len(da_dict), figsize=(size[0], size[1]), subplot_kw={'projection': ccrs.PlateCarree()})
+    i = 0 
+    for key, da in da_dict.items(): 
+        da.plot(ax=axes[i], cmap=cm.viridis, vmin=vmin, vmax=vmax, add_colorbar=False); 
+        axes[i].coastlines();
+        axes[i].set_title(key)
+        i = i + 1 
+    
+def simple_plot(da, title, vmin, vmax):
+    plt.figure(figsize=(24,24))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    da.plot(ax=ax, cmap=cm.viridis, vmin=vmin, vmax=vmax);
+    ax.coastlines();
+    plt.title(title)
+    
 def xr_conditional_count(ds, threshold=95, convert=lambda x : (x - 32) * 5 / 9 + 273.15):
     if convert is not None :
         threshold = convert(threshold)
